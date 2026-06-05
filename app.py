@@ -15,11 +15,11 @@ import plotly.express as px
 # Replace the values below with your actual file IDs.
 
 DRIVE_FILES = {
-    "best_model.pkl":              "1mZLY71zY_UXl4vE5UleotYVN0lI1ht8-",
-    "tfidf_vectorizer.pkl":        "1t18qwIrmNcsiWjW9G_g7rKv5gZ7tzkzQ",
-    "label_encoder.pkl":           "1HMBXc7W6rBOlBH04OJCPqKLfRH9OMhlY",
-    "model_metadata.json":         "1j40Q2yHMbKxYQJHfzz0_Y4lk9UoARa9Y",
-    "reviews_for_dashboard.csv":   "1dYSCMKOEMNxLy1-G6uDdzVC-mr5zHdT8",
+    "best_model.pkl":              "1VJu6yUdZbxIKF8TWHXxb-cB7COUlMSnI",
+    "tfidf_vectorizer.pkl":        "1hSyq9eV3TcSkDtD0vgmTeIWdRCXXw90t",
+    "label_encoder.pkl":           "1_s7Gi1Z9reKE_lE34IDvO_i2q0e-rgn6",
+    "model_metadata.json":         "1M0s-Qek4jiQr-z4gIUqG_ryGIPM72-gh",
+    "reviews_for_dashboard.csv":   "1l5g45QBGsD7ExCRgVTDAmuVEoQZJkxLc",
 }
 
 @st.cache_resource(show_spinner="Loading model from Google Drive...")
