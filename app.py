@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -8,176 +7,163 @@ import os
 import gdown
 import plotly.express as px
 
-# ── Google Drive file IDs ──────────────────────────────────────────────────────
-# After uploading files to Google Drive, get the share link for each file.
-# The file ID is the long string in the link:
-# https://drive.google.com/file/d/FILE_ID_HERE/view
-# Replace the values below with your actual file IDs.
-
 DRIVE_FILES = {
-    "best_model.pkl":              "1VJu6yUdZbxIKF8TWHXxb-cB7COUlMSnI",
-    "tfidf_vectorizer.pkl":        "1hSyq9eV3TcSkDtD0vgmTeIWdRCXXw90t",
-    "label_encoder.pkl":           "1_s7Gi1Z9reKE_lE34IDvO_i2q0e-rgn6",
-    "model_metadata.json":         "1M0s-Qek4jiQr-z4gIUqG_ryGIPM72-gh",
-    "reviews_for_dashboard.csv":   "1l5g45QBGsD7ExCRgVTDAmuVEoQZJkxLc",
+    "best_model.pkl":            "1VJu6yUdZbxIKF8TWHXxb-cB7COUlMSnI",
+    "tfidf_vectorizer.pkl":      "1hSyq9eV3TcSkDtD0vgmTeIWdRCXXw90t",
+    "label_encoder.pkl":         "1_s7Gi1Z9reKE_lE34IDvO_i2q0e-rgn6",
+    "model_metadata.json":       "1M0s-Qek4jiQr-z4gIUqG_ryGIPM72-gh",
+    "reviews_for_dashboard.csv": "1l5g45QBGsD7ExCRgVTDAmuVEoQZJkxLc",
 }
 
-@st.cache_resource(show_spinner="Loading model from Google Drive...")
+@st.cache_resource(show_spinner='Loading model...')
 def download_and_load():
     for filename, file_id in DRIVE_FILES.items():
         if not os.path.exists(filename):
-            url = f"https://drive.google.com/uc?id={file_id}"
-            gdown.download(url, filename, quiet=True)
-
-    model   = joblib.load("best_model.pkl")
-    tfidf   = joblib.load("tfidf_vectorizer.pkl")
+            gdown.download(f"https://drive.google.com/uc?id={file_id}", filename, quiet=True)
+    model = joblib.load("best_model.pkl")
+    tfidf = joblib.load("tfidf_vectorizer.pkl")
     encoder = joblib.load("label_encoder.pkl")
     with open("model_metadata.json") as f:
         meta = json.load(f)
     return model, tfidf, encoder, meta
 
-@st.cache_data(show_spinner="Loading review data...")
+@st.cache_data(show_spinner='Loading review data...')
 def load_data():
     if not os.path.exists("reviews_for_dashboard.csv"):
         url = f"https://drive.google.com/uc?id={DRIVE_FILES['reviews_for_dashboard.csv']}"
         gdown.download(url, "reviews_for_dashboard.csv", quiet=True)
     return pd.read_csv("reviews_for_dashboard.csv", parse_dates=["date"])
 
-# ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Ethiopian Banking Sentiment Analyzer",
     page_icon="🇪🇹",
-    layout="wide"
+    layout="wide",
 )
 
 model, tfidf, encoder, meta = download_and_load()
 df = load_data()
+COLORS = {"positive": "#2ECC71", "negative": "#E74C3C"}
 
-SENTIMENT_COLORS = {"positive": "#2ECC71", "neutral": "#F39C12", "negative": "#E74C3C"}
-ORDER = ["positive", "neutral", "negative"]
 
 def clean_text(text):
     if not isinstance(text, str):
-        return ""
-    text = re.sub(r"http\S+|www\.\S+|\S+@\S+", "", text)
-    text = re.sub(r"[^\u1200-\u137Fa-zA-Z0-9\s\.\,\!\?\'\/-]", " ", text)
-    text = text.lower()
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+        return ''
+    text = re.sub(r'http\S+|www\.\S+|\S+@\S+', '', text)
+    text = re.sub(r"[^ሀ-፿a-zA-Z0-9\s\.,!?'/\-]", ' ', text)
+    return re.sub(r'\s+', ' ', text.lower()).strip()
+
 
 def predict(text):
-    cleaned  = clean_text(text)
-    features = tfidf.transform([cleaned])
-    pred_idx = model.predict(features)[0]
-    return encoder.inverse_transform([pred_idx])[0]
+    return encoder.inverse_transform(model.predict(tfidf.transform([clean_text(text)])))[0]
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
 st.sidebar.title("🇪🇹 Ethiopian Banking\nSentiment Analyzer")
-st.sidebar.markdown("---")
-page = st.sidebar.radio("Navigate", ["🔍 Predict Sentiment", "📊 Analytics Dashboard", "ℹ️ Model Info"])
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Model Performance**")
-st.sidebar.metric("Test Accuracy", f"{meta['test_accuracy']*100:.1f}%")
-st.sidebar.metric("Test F1 (weighted)", f"{meta['test_f1']:.4f}")
-st.sidebar.metric("CV F1 Mean", f"{meta['cv_mean_f1']:.4f} ± {meta['cv_std_f1']:.4f}")
+st.sidebar.markdown('---')
+page = st.sidebar.radio("Navigate", ["Predict Sentiment", "Analytics Dashboard", "Model Info"])
+st.sidebar.markdown('---')
+st.sidebar.markdown('**Binary Model Performance**')
+st.sidebar.metric('Test Accuracy', f"{meta['test_accuracy']*100:.1f}%")
+st.sidebar.metric('Test F1 (negative)', f"{meta['test_f1']:.4f}")
+st.sidebar.metric('ROC-AUC', f"{meta.get('test_auc', 'N/A')}")
 
-# ── Page 1: Predict ────────────────────────────────────────────────────────────
-if page == "🔍 Predict Sentiment":
-    st.title("🔍 Predict Review Sentiment")
-    st.markdown("""Enter a review in **English**, **Amharic (Ethiopic script)**,
-    or **Romanized Amharic** (e.g. *betam tiru app new*) — the model handles all three.""")
-
+if page == 'Predict Sentiment':
+    st.title('Predict Review Sentiment')
+    st.info(
+        'This model classifies reviews as **Positive** or **Negative**. '
+        'Three-star (mixed) reviews are excluded from the training data '
+        'because their labels are too ambiguous to learn reliably.'
+    )
     col1, col2 = st.columns([2, 1])
     with col1:
-        review_input = st.text_area("Paste a review here:", height=150,
-            placeholder="e.g. App yellem always crashing, betam annoying!")
-        predict_btn = st.button("Analyze Sentiment", type="primary", use_container_width=True)
+        review_input = st.text_area(
+            'Paste a review here:',
+            height=150,
+            placeholder='e.g. App yellem always crashing / betam tiru app!',
+        )
+        predict_btn = st.button('Analyze Sentiment', type='primary', use_container_width=True)
     with col2:
-        st.markdown("**Example reviews to try:**")
+        st.markdown('**Examples to try:**')
         examples = [
-            "betam tiru app new, always fast and reliable!",
-            "app yellem always crashing, very frustrated",
-            "Sometimes works sometimes not, average",
-            "በጣም ጥሩ አፕሊኬሽን ነው፣ ፈጣን ነው",
-            "Always shows error cannot transfer money",
+            'betam tiru, always fast and reliable!',
+            'yellem app always crashing very frustrated',
+            'Great app, best banking app in Ethiopia',
+            'Cannot transfer money, always shows error',
         ]
         for ex in examples:
-            if st.button(ex[:45] + "...", key=ex):
+            if st.button(ex[:45], key=ex):
                 review_input = ex
-                predict_btn  = True
-
+                predict_btn = True
     if predict_btn and review_input.strip():
         sentiment = predict(review_input)
-        color = SENTIMENT_COLORS[sentiment]
-        icons = {"positive": "😊", "neutral": "😐", "negative": "😞"}
+        color = COLORS[sentiment]
+        icons = {"positive": "😊", "negative": "😞"}
         st.markdown(
-            f"""<div style="background:{color}22; border-left:5px solid {color};
-            padding:20px; border-radius:8px; margin-top:10px;">
-            <h2 style="color:{color};">{icons[sentiment]} {sentiment.upper()}</h2>
-            <p style="color:#333;">The model classified this review as <b>{sentiment}</b>.</p>
-            </div>""", unsafe_allow_html=True)
+            f'<div style="background:{color}22; border-left:5px solid {color}; '
+            f'padding:20px; border-radius:8px; margin-top:10px;">'
+            f'<h2 style="color:{color};">{icons[sentiment]} {sentiment.upper()}</h2>'
+            f'<p>This review was classified as <b>{sentiment}</b>.</p></div>',
+            unsafe_allow_html=True,
+        )
 
-# ── Page 2: Dashboard ──────────────────────────────────────────────────────────
-elif page == "📊 Analytics Dashboard":
-    st.title("📊 Sentiment Analytics Dashboard")
-    st.markdown("Explore sentiment patterns across Ethiopian banking apps.")
-
-    selected_apps = st.multiselect("Filter by app:",
-        options=df["app_name"].unique().tolist(),
-        default=df["app_name"].unique().tolist())
-    dff = df[df["app_name"].isin(selected_apps)]
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Reviews", f"{len(dff):,}")
-    c2.metric("Positive", f"{(dff['sentiment']=='positive').sum():,}")
-    c3.metric("Neutral",  f"{(dff['sentiment']=='neutral').sum():,}")
-    c4.metric("Negative", f"{(dff['sentiment']=='negative').sum():,}")
-
-    st.markdown("---")
+elif page == 'Analytics Dashboard':
+    st.title('Sentiment Analytics Dashboard')
+    selected = st.multiselect(
+        'Filter by app:',
+        df['app_name'].unique().tolist(),
+        default=df['app_name'].unique().tolist(),
+    )
+    dff = df[df['app_name'].isin(selected)]
+    c1, c2, c3 = st.columns(3)
+    c1.metric('Total Reviews', f'{len(dff):,}')
+    c2.metric('Positive', f"{(dff['sentiment'] == 'positive').sum():,}")
+    c3.metric('Negative', f"{(dff['sentiment'] == 'negative').sum():,}")
     col1, col2 = st.columns(2)
     with col1:
-        sc = dff["sentiment"].value_counts().reset_index()
-        sc.columns = ["sentiment", "count"]
-        st.plotly_chart(px.pie(sc, values="count", names="sentiment",
-            title="Overall Sentiment", color="sentiment",
-            color_discrete_map=SENTIMENT_COLORS, hole=0.4), use_container_width=True)
+        sc = dff['sentiment'].value_counts().reset_index()
+        sc.columns = ['sentiment', 'count']
+        st.plotly_chart(
+            px.pie(
+                sc,
+                values='count',
+                names='sentiment',
+                title='Overall Sentiment',
+                color='sentiment',
+                color_discrete_map=COLORS,
+                hole=0.4,
+            ),
+            use_container_width=True,
+        )
     with col2:
-        aps = dff.groupby(["app_name","sentiment"]).size().reset_index(name="count")
-        fig2 = px.bar(aps, x="app_name", y="count", color="sentiment",
-            title="Sentiment by Bank", color_discrete_map=SENTIMENT_COLORS, barmode="stack")
+        aps = dff.groupby(['app_name', 'sentiment']).size().reset_index(name='count')
+        fig2 = px.bar(
+            aps,
+            x='app_name',
+            y='count',
+            color='sentiment',
+            title='Sentiment by Bank',
+            color_discrete_map=COLORS,
+            barmode='group',
+        )
         fig2.update_xaxes(tickangle=20)
         st.plotly_chart(fig2, use_container_width=True)
-
-    avg = dff.groupby("app_name")["score"].mean().reset_index()
-    avg.columns = ["app_name","avg_rating"]
-    avg = avg.sort_values("avg_rating")
-    st.plotly_chart(px.bar(avg, x="avg_rating", y="app_name", orientation="h",
-        title="Average Star Rating by App", color="avg_rating",
-        color_continuous_scale="RdYlGn", range_color=[1,5]), use_container_width=True)
-
-    st.subheader("📋 Recent Reviews")
-    st.dataframe(dff[["app_name","content","score","sentiment","date"]]
-        .sort_values("date", ascending=False).head(20), use_container_width=True)
-
-# ── Page 3: Model Info ─────────────────────────────────────────────────────────
-elif page == "ℹ️ Model Info":
-    st.title("ℹ️ Model Information")
-    st.markdown("""
-    | Step | Method |
-    |------|--------|
-    | Data Collection | Google Play Scraper |
-    | Labeling | Star rating → Negative / Neutral / Positive |
-    | Text Cleaning | Regex — Amharic + Latin preserved |
-    | Feature Extraction | TF-IDF character n-grams (2–4), vocab=50k |
-    | Imbalance Handling | SMOTE (training set only) |
-    | Models Compared | Logistic Regression, Naive Bayes, Linear SVM, Random Forest |
-    | Evaluation | Accuracy, Weighted F1, Confusion Matrix, 5-Fold CV |
-    | Deployment | Streamlit Community Cloud |
-    """)
-    st.markdown("### Handling Romanized Amharic")
-    st.info(
-        "Ethiopian users write Amharic phonetically in Latin script (e.g. 'betam tiru' = 'very good'). "
-        "We use character-level n-gram TF-IDF which learns subword patterns correlated with sentiment "
-        "directly from labeled data — no translation needed."
+    st.subheader('Recent Reviews')
+    st.dataframe(
+        dff[['app_name', 'content', 'score', 'sentiment', 'date']]
+        .sort_values('date', ascending=False)
+        .head(20),
+        use_container_width=True,
     )
+
+elif page == 'Model Info':
+    st.title('Model Information')
+    st.markdown('### Why Binary Classification?')
+    st.warning(
+        'This project originally attempted 3-class classification (Positive / Neutral / Negative). '
+        'The neutral class consistently failed despite applying label refinement, SMOTE, and '
+        'class_weight balancing. The root cause was structural: 3-star reviews have inherently '
+        'contradictory labels (same star rating, opposite text sentiment), and at only 4.9% of '
+        'the dataset the class had insufficient clean signal to learn from. '
+        'Binary classification removes this ambiguity and covers 95% of the data with reliable labels.'
+    )
+    if 'design_decision' in meta:
+        st.info(meta['design_decision'])
     st.json(meta)
