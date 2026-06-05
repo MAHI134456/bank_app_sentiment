@@ -77,9 +77,9 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate", ["🔍 Predict Sentiment", "📊 Analytics Dashboard", "ℹ️ Model Info"])
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Model Performance**")
-st.sidebar.metric("Test Accuracy", f"{meta[\"test_accuracy\"]*100:.1f}%")
-st.sidebar.metric("Test F1 (weighted)", f"{meta[\"test_f1\"]:.4f}")
-st.sidebar.metric("CV F1 Mean", f"{meta[\"cv_mean_f1\"]:.4f} ± {meta[\"cv_std_f1\"]:.4f}")
+st.sidebar.metric("Test Accuracy", f"{meta['test_accuracy']*100:.1f}%")
+st.sidebar.metric("Test F1 (weighted)", f"{meta['test_f1']:.4f}")
+st.sidebar.metric("CV F1 Mean", f"{meta['cv_mean_f1']:.4f} ± {meta['cv_std_f1']:.4f}")
 
 # ── Page 1: Predict ────────────────────────────────────────────────────────────
 if page == "🔍 Predict Sentiment":
